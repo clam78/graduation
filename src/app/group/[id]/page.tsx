@@ -6,7 +6,7 @@ import Countdown from '@/components/Countdown'
 import BucketList from '@/components/BucketList'
 import WeekCalendar from '@/components/WeekCalendar'
 import ProposeTimeModal from '@/components/ProposeTimeModal'
-import { BucketListItem, FreeSlot, Group, Suggestion } from '@/types'
+import { BucketListItem, FreeSlot, Group, ProposedTime, Suggestion } from '@/types'
 import { createClient } from '@/lib/supabase'
 
 function SignOutButton() {
@@ -32,6 +32,7 @@ export default function GroupPage() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [selectedSlot, setSelectedSlot] = useState<FreeSlot | null>(null)
   const [proposeItem, setProposeItem] = useState<BucketListItem | null>(null)
+  const [proposedTimes, setProposedTimes] = useState<ProposedTime[]>([])
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
   const [tab, setTab] = useState<'list' | 'schedule'>('list')
 
@@ -46,6 +47,7 @@ export default function GroupPage() {
     fetchGroup()
     fetchBucketList()
     fetchFreeSlots()
+    fetchProposedTimes()
   }, [groupId])
 
   async function fetchGroup() {
@@ -109,6 +111,31 @@ export default function GroupPage() {
     const { suggestions: s } = await res.json()
     setSuggestions(s ?? [])
     setLoadingSuggestions(false)
+  }
+
+  async function fetchProposedTimes() {
+    const res = await fetch(`/api/proposed-times?groupId=${groupId}`)
+    const { proposedTimes: raw } = await res.json()
+    if (raw) setProposedTimes(raw)
+  }
+
+  async function handleRsvp(proposedTimeId: string, response: 'yes' | 'no' | 'maybe') {
+    await fetch('/api/proposed-times', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: proposedTimeId, rsvp: response }),
+    })
+    setProposedTimes(prev => prev.map(pt =>
+      pt.id === proposedTimeId
+        ? {
+            ...pt,
+            myRsvp: response,
+            rsvps: pt.rsvps.some(r => r.userId === currentUserId)
+              ? pt.rsvps.map(r => r.userId === currentUserId ? { ...r, response } : r)
+              : [...pt.rsvps, { userId: currentUserId!, displayName: 'You', response }],
+          }
+        : pt
+    ))
   }
 
   async function addSuggestionToList(s: Suggestion) {
@@ -175,8 +202,8 @@ export default function GroupPage() {
         </div>
       </div>
 
-      {/* Calendar sync banner — shown until the current user has connected */}
-      {calendarConnected === false && (
+      {/* Calendar sync banner */}
+      {calendarConnected === false ? (
         <div className="flex items-center justify-between px-4 py-3 bg-petal rounded-2xl border border-blush mb-6">
           <div>
             <p className="text-sm font-medium text-bark">Sync your calendar</p>
@@ -187,6 +214,16 @@ export default function GroupPage() {
             className="px-4 py-2 bg-bark text-white text-xs font-medium rounded-full hover:bg-bark-light transition-colors flex-shrink-0"
           >
             Connect
+          </a>
+        </div>
+      ) : calendarConnected === true && (
+        <div className="flex items-center justify-between px-4 py-2.5 bg-white rounded-2xl border border-sand mb-6 shadow-sm">
+          <p className="text-xs text-muted">Calendar synced</p>
+          <a
+            href={`/api/auth/google-calendar?groupId=${groupId}`}
+            className="text-xs text-blush hover:text-bark transition-colors"
+          >
+            Reconnect to include all calendars →
           </a>
         </div>
       )}
@@ -212,6 +249,8 @@ export default function GroupPage() {
         <BucketList
           items={items}
           groupId={groupId}
+          proposedTimes={proposedTimes}
+          currentUserId={currentUserId}
           onItemAdded={(item) => setItems((prev) => [item, ...prev])}
           onItemUpdated={(id, changes) =>
             setItems((prev) =>
@@ -219,6 +258,7 @@ export default function GroupPage() {
             )
           }
           onItemDeleted={(id) => setItems((prev) => prev.filter((item) => item.id !== id))}
+          onRsvp={handleRsvp}
         />
       )}
 
@@ -231,6 +271,8 @@ export default function GroupPage() {
             loadingSuggestions={loadingSuggestions}
             onSlotSelect={loadSuggestions}
             onAddToBucketList={addSuggestionToList}
+            connectedMembers={group.members.filter(m => m.hasCalendarConnected).length}
+            totalMembers={group.members.length}
           />
 
           {items.filter((i) => !i.completed).length > 0 && (
@@ -258,7 +300,7 @@ export default function GroupPage() {
           item={proposeItem}
           freeSlots={freeSlots}
           onClose={() => setProposeItem(null)}
-          onProposed={() => setProposeItem(null)}
+          onProposed={() => { setProposeItem(null); fetchProposedTimes() }}
         />
       )}
     </div>

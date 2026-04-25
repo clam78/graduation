@@ -75,6 +75,7 @@ export interface ProposedTime {
   endTime: string
   status: 'pending' | 'confirmed' | 'cancelled'
   rsvps: { userId: string; displayName: string; response: 'yes' | 'no' | 'maybe' }[]
+  myRsvp: 'yes' | 'no' | 'maybe' | null
   createdAt: string
 }
 

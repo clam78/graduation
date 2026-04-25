@@ -18,6 +18,8 @@ interface WeekCalendarProps {
   loadingSuggestions: boolean
   onSlotSelect: (slot: FreeSlot | null) => void
   onAddToBucketList: (s: Suggestion) => void
+  connectedMembers: number
+  totalMembers: number
 }
 
 export default function WeekCalendar({
@@ -27,6 +29,8 @@ export default function WeekCalendar({
   loadingSuggestions,
   onSlotSelect,
   onAddToBucketList,
+  connectedMembers,
+  totalMembers,
 }: WeekCalendarProps) {
   const [weekStart, setWeekStart] = useState(() =>
     startOfWeek(new Date(), { weekStartsOn: 1 })
@@ -175,7 +179,13 @@ export default function WeekCalendar({
         </div>
       </div>
 
-      {freeSlots.length === 0 && (
+      {connectedMembers < totalMembers && (
+        <p className="text-center text-xs text-muted-light py-1">
+          Showing free time for {connectedMembers}/{totalMembers} members — ask others to sync their calendar.
+        </p>
+      )}
+
+      {freeSlots.length === 0 && connectedMembers === 0 && (
         <p className="text-center text-muted text-sm py-6">
           Connect calendars to see shared free windows.
         </p>
