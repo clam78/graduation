@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { exchangeCodeForTokens } from '@/lib/google-calendar'
-import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { createServerSupabaseClient, createAdminSupabaseClient } from '@/lib/supabase-server'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const code = searchParams.get('code')
-  const groupId = searchParams.get('state') // passed through OAuth state param
+  const groupId = searchParams.get('state')
 
-  if (!code) {
+  if (!code || !groupId) {
     return NextResponse.redirect(new URL('/dashboard?error=no_code', req.url))
   }
 
@@ -19,9 +19,9 @@ export async function GET(req: NextRequest) {
   }
 
   const tokens = await exchangeCodeForTokens(code)
+  const admin = createAdminSupabaseClient()
 
-  // Store tokens on the user's group_members row
-  await supabase
+  const { error } = await admin
     .from('group_members')
     .update({
       google_access_token: tokens.access_token,
@@ -33,7 +33,10 @@ export async function GET(req: NextRequest) {
     .eq('user_id', user.id)
     .eq('group_id', groupId)
 
-  return NextResponse.redirect(
-    new URL(`/group/${groupId}?calendar=connected`, req.url)
-  )
+  if (error) {
+    console.error('Failed to store calendar tokens:', error)
+    return NextResponse.redirect(new URL(`/group/${groupId}?error=calendar_failed`, req.url))
+  }
+
+  return NextResponse.redirect(new URL(`/group/${groupId}?calendar=connected`, req.url))
 }

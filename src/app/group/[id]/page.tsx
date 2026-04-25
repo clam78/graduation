@@ -25,6 +25,8 @@ function SignOutButton() {
 export default function GroupPage() {
   const { id: groupId } = useParams<{ id: string }>()
   const [group, setGroup] = useState<Group | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [calendarConnected, setCalendarConnected] = useState<boolean | null>(null)
   const [items, setItems] = useState<BucketListItem[]>([])
   const [freeSlots, setFreeSlots] = useState<FreeSlot[]>([])
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
@@ -34,6 +36,13 @@ export default function GroupPage() {
   const [tab, setTab] = useState<'list' | 'schedule'>('list')
 
   useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setCurrentUserId(user.id)
+    })
+    fetch(`/api/calendar/status?groupId=${groupId}`)
+      .then(r => r.json())
+      .then(({ connected }) => setCalendarConnected(connected ?? false))
     fetchGroup()
     fetchBucketList()
     fetchFreeSlots()
@@ -159,6 +168,22 @@ export default function GroupPage() {
           </div>
         </div>
       </div>
+
+      {/* Calendar sync banner — shown until the current user has connected */}
+      {calendarConnected === false && (
+        <div className="flex items-center justify-between px-4 py-3 bg-petal rounded-2xl border border-blush mb-6">
+          <div>
+            <p className="text-sm font-medium text-bark">Sync your calendar</p>
+            <p className="text-xs text-muted-light mt-0.5">So the group can find times that work for everyone.</p>
+          </div>
+          <a
+            href={`/api/auth/google-calendar?groupId=${groupId}`}
+            className="px-4 py-2 bg-bark text-white text-xs font-medium rounded-full hover:bg-bark-light transition-colors flex-shrink-0"
+          >
+            Connect
+          </a>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-2 mb-6">
