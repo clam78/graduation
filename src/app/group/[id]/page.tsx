@@ -79,7 +79,8 @@ export default function GroupPage() {
   }
 
   async function fetchFreeSlots() {
-    const res = await fetch(`/api/calendar/freebusy?groupId=${groupId}`)
+    const tzOffset = new Date().getTimezoneOffset()
+    const res = await fetch(`/api/calendar/freebusy?groupId=${groupId}&tzOffset=${tzOffset}`)
     const data = await res.json()
     if (data.freeSlots) {
       setFreeSlots(

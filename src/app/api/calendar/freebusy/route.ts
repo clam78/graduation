@@ -6,6 +6,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const groupId = searchParams.get('groupId')
   const daysAhead = Number(searchParams.get('days') ?? 14)
+  const tzOffset = Number(searchParams.get('tzOffset') ?? 0)
 
   if (!groupId) {
     return NextResponse.json({ error: 'groupId required' }, { status: 400 })
@@ -44,7 +45,7 @@ export async function GET(req: NextRequest) {
     .filter((r): r is PromiseFulfilledResult<{ userId: string; busy: { start: string; end: string }[] }> => r.status === 'fulfilled')
     .map((r) => r.value)
 
-  const freeSlots = findGroupFreeSlots(allBusyBlocks, daysAhead)
+  const freeSlots = findGroupFreeSlots(allBusyBlocks, daysAhead, 60, tzOffset)
 
   // Return busy blocks without any event details — time ranges only
   const sanitizedBusy = allBusyBlocks.map(({ userId, busy }) => ({

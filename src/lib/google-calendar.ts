@@ -1,6 +1,6 @@
 import { google } from 'googleapis'
 import { FreeSlot, SlotType } from '@/types'
-import { addDays, format, isWeekend, startOfDay, endOfDay } from 'date-fns'
+import { addDays, format } from 'date-fns'
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
 
@@ -15,7 +15,8 @@ function makeOAuthClient() {
 export function getAuthUrl(groupId: string) {
   return makeOAuthClient().generateAuthUrl({
     access_type: 'offline',
-    scope: ['https://www.googleapis.com/auth/calendar.freebusy'],
+    // calendar.readonly lets us list all calendars + run freebusy queries
+    scope: ['https://www.googleapis.com/auth/calendar.readonly'],
     prompt: 'consent',
     state: groupId,
   })
@@ -32,8 +33,7 @@ interface BusyBlock {
   end: string
 }
 
-// Returns busy blocks for a single user over the next `daysAhead` days.
-// Never returns event titles — only time ranges.
+// Returns merged busy blocks for a single user across ALL their calendars.
 export async function getUserBusyBlocks(
   accessToken: string,
   refreshToken: string,
@@ -46,53 +46,71 @@ export async function getUserBusyBlocks(
   const timeMin = new Date().toISOString()
   const timeMax = addDays(new Date(), daysAhead).toISOString()
 
+  // Try to get all calendar IDs; fall back to primary-only if scope is insufficient
+  let calendarIds: string[] = ['primary']
+  try {
+    const listRes = await calendar.calendarList.list({ minAccessRole: 'reader' })
+    const ids = (listRes.data.items ?? [])
+      .filter(c => !c.hidden && c.id)
+      .map(c => c.id!)
+    if (ids.length > 0) calendarIds = ids
+  } catch {
+    // Old token with freebusy-only scope — primary only
+  }
+
   const res = await calendar.freebusy.query({
-    requestBody: {
-      timeMin,
-      timeMax,
-      items: [{ id: 'primary' }],
-    },
+    requestBody: { timeMin, timeMax, items: calendarIds.map(id => ({ id })) },
   })
 
-  return (res.data.calendars?.primary?.busy ?? []) as BusyBlock[]
+  // Collect busy blocks from every calendar in the response
+  const allBusy: BusyBlock[] = []
+  for (const calData of Object.values(res.data.calendars ?? {})) {
+    for (const block of calData.busy ?? []) {
+      if (block.start && block.end) allBusy.push({ start: block.start, end: block.end })
+    }
+  }
+
+  allBusy.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+  return allBusy
 }
 
-// Given busy blocks from multiple users, find overlapping free windows
-// that are at least `minMinutes` long.
+// tzOffset = client's Date.getTimezoneOffset() — positive for west of UTC (e.g. 240 for EDT/UTC-4).
+// All day boundaries are computed in the user's local timezone to avoid the UTC-shifts-hours bug.
 export function findGroupFreeSlots(
   allBusyBlocks: { userId: string; busy: BusyBlock[] }[],
   daysAhead = 14,
-  minMinutes = 60
+  minMinutes = 60,
+  tzOffset = 0
 ): FreeSlot[] {
   const slots: FreeSlot[] = []
-  const now = new Date()
+
+  // Represent "now" in the user's local timezone so day iteration is correct.
+  // getTimezoneOffset() = 240 for EDT means local = UTC − 4h, so localMs = UTC − offset.
+  const localNowMs = Date.now() - tzOffset * 60 * 1000
 
   for (let d = 0; d < daysAhead; d++) {
-    const day = addDays(now, d)
-    const dayStart = new Date(startOfDay(day).getTime())
-    dayStart.setHours(8, 0, 0, 0)
-    const dayEnd = new Date(endOfDay(day).getTime())
-    dayEnd.setHours(22, 0, 0, 0)
+    const localDay = addDays(new Date(localNowMs), d)
 
-    // Collect all busy intervals for this day across all users.
-    // Use midnight-to-midnight as the day boundary for overlap detection so
-    // multi-day events (start yesterday, end tomorrow) are not missed.
-    const dayMidnight = startOfDay(day).getTime()
-    const nextMidnight = dayMidnight + 24 * 60 * 60 * 1000
+    // UTC milliseconds that equal local midnight of this day.
+    // Because local = UTC − offset, local midnight = UTC midnight + offset.
+    const localMidnightUTC =
+      Date.UTC(localDay.getUTCFullYear(), localDay.getUTCMonth(), localDay.getUTCDate()) +
+      tzOffset * 60 * 1000
 
+    const dayStartMs    = localMidnightUTC + 8  * 60 * 60 * 1000  // local 8 am
+    const dayEndMs      = localMidnightUTC + 22 * 60 * 60 * 1000  // local 10 pm
+    const nextMidnightMs = localMidnightUTC + 24 * 60 * 60 * 1000
+
+    // Collect every busy block that overlaps this local day, clamped to 8 am–10 pm.
     const intervals: { start: number; end: number }[] = []
     for (const { busy } of allBusyBlocks) {
       for (const block of busy) {
         const s = new Date(block.start).getTime()
         const e = new Date(block.end).getTime()
-        // Any event that overlaps this calendar day at all
-        if (s < nextMidnight && e > dayMidnight) {
-          const clampedStart = Math.max(s, dayStart.getTime())
-          const clampedEnd = Math.min(e, dayEnd.getTime())
-          // Only keep if the clamped interval is actually within our window
-          if (clampedEnd > clampedStart) {
-            intervals.push({ start: clampedStart, end: clampedEnd })
-          }
+        if (s < nextMidnightMs && e > localMidnightUTC) {
+          const cs = Math.max(s, dayStartMs)
+          const ce = Math.min(e, dayEndMs)
+          if (ce > cs) intervals.push({ start: cs, end: ce })
         }
       }
     }
@@ -100,63 +118,57 @@ export function findGroupFreeSlots(
     // Merge overlapping intervals
     intervals.sort((a, b) => a.start - b.start)
     const merged: { start: number; end: number }[] = []
-    for (const interval of intervals) {
-      if (merged.length === 0 || merged[merged.length - 1].end < interval.start) {
-        merged.push({ ...interval })
+    for (const iv of intervals) {
+      if (!merged.length || merged[merged.length - 1].end < iv.start) {
+        merged.push({ ...iv })
       } else {
-        merged[merged.length - 1].end = Math.max(
-          merged[merged.length - 1].end,
-          interval.end
-        )
+        merged[merged.length - 1].end = Math.max(merged[merged.length - 1].end, iv.end)
       }
     }
 
-    // Gaps between busy blocks = free slots
-    let cursor = dayStart.getTime()
-    const boundaries = [
-      ...merged,
-      { start: dayEnd.getTime(), end: dayEnd.getTime() },
-    ]
-
-    for (const block of boundaries) {
+    // Walk the gaps
+    let cursor = dayStartMs
+    for (const block of [...merged, { start: dayEndMs, end: dayEndMs }]) {
       const freeStart = cursor
-      const freeEnd = block.start
-      const durationMs = freeEnd - freeStart
-      const durationMinutes = durationMs / 60000
+      const freeEnd   = block.start
+      const durationMinutes = (freeEnd - freeStart) / 60000
 
       if (durationMinutes >= minMinutes) {
-        const start = new Date(freeStart)
-        const end = new Date(freeEnd)
+        // day-of-week in local time: shift back by offset to get "local UTC representation"
+        const localDow = new Date(freeStart - tzOffset * 60 * 1000).getUTCDay()
         slots.push({
-          start,
-          end,
+          start: new Date(freeStart),
+          end:   new Date(freeEnd),
           durationMinutes,
-          slotType: classifySlot(start),
-          dayOfWeek: start.getDay(),
-          isWeekend: isWeekend(start),
+          slotType: classifySlot(freeStart, tzOffset),
+          dayOfWeek: localDow,
+          isWeekend: localDow === 0 || localDow === 6,
         })
       }
-      cursor = Math.max(block.end, dayStart.getTime())
+
+      cursor = Math.max(block.end, dayStartMs)
     }
   }
 
   return slots
 }
 
-function classifySlot(time: Date): SlotType {
-  const hour = time.getHours()
-  if (hour >= 6 && hour < 10) return 'breakfast'
-  if (hour >= 10 && hour < 12) return 'morning'
-  if (hour >= 12 && hour < 14) return 'lunch'
-  if (hour >= 14 && hour < 17) return 'afternoon'
-  if (hour >= 17 && hour < 20) return 'dinner'
-  if (hour >= 20 && hour < 23) return 'evening'
+// Classify by the user's local hour (not the server's UTC hour).
+function classifySlot(utcMs: number, tzOffset: number): SlotType {
+  const utcHour = new Date(utcMs).getUTCHours()
+  const localHour = ((utcHour - tzOffset / 60) % 24 + 24) % 24
+  if (localHour >= 6  && localHour < 10) return 'breakfast'
+  if (localHour >= 10 && localHour < 12) return 'morning'
+  if (localHour >= 12 && localHour < 14) return 'lunch'
+  if (localHour >= 14 && localHour < 17) return 'afternoon'
+  if (localHour >= 17 && localHour < 20) return 'dinner'
+  if (localHour >= 20 && localHour < 23) return 'evening'
   return 'late_night'
 }
 
 export function formatSlotLabel(slot: FreeSlot): string {
   const day = format(slot.start, 'EEEE MMM d')
   const startTime = format(slot.start, 'h:mm a')
-  const endTime = format(slot.end, 'h:mm a')
+  const endTime   = format(slot.end,   'h:mm a')
   return `${day}, ${startTime} – ${endTime}`
 }

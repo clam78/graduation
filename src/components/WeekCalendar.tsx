@@ -159,7 +159,7 @@ export default function WeekCalendar({
                           : 'bg-petal text-blush-deep hover:bg-blush hover:text-white'
                       }`}
                     >
-                      <span className="block">{format(slot.start.getHours() < START_HOUR ? new Date(slot.start.getFullYear(), slot.start.getMonth(), slot.start.getDate(), START_HOUR) : slot.start, 'h:mma')}–{format(slot.end, 'h:mma')}</span>
+                      <span className="block">{format(slot.start, 'h:mma')}–{format(slot.end, 'h:mma')}</span>
                       <span className="block opacity-80">
                         {(slot.durationMinutes / 60 % 1 === 0
                           ? slot.durationMinutes / 60
