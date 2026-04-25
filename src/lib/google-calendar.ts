@@ -4,14 +4,16 @@ import { addDays, format, isWeekend, startOfDay, endOfDay } from 'date-fns'
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
 
-const oauth2Client = new google.auth.OAuth2(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  `${appUrl}/api/auth/callback/google`
-)
+function makeOAuthClient() {
+  return new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    `${appUrl}/api/auth/callback/google`
+  )
+}
 
 export function getAuthUrl(groupId: string) {
-  return oauth2Client.generateAuthUrl({
+  return makeOAuthClient().generateAuthUrl({
     access_type: 'offline',
     scope: ['https://www.googleapis.com/auth/calendar.freebusy'],
     prompt: 'consent',
@@ -20,7 +22,8 @@ export function getAuthUrl(groupId: string) {
 }
 
 export async function exchangeCodeForTokens(code: string) {
-  const { tokens } = await oauth2Client.getToken(code)
+  const client = makeOAuthClient()
+  const { tokens } = await client.getToken(code)
   return tokens
 }
 
@@ -36,12 +39,10 @@ export async function getUserBusyBlocks(
   refreshToken: string,
   daysAhead = 14
 ): Promise<BusyBlock[]> {
-  oauth2Client.setCredentials({
-    access_token: accessToken,
-    refresh_token: refreshToken,
-  })
+  const client = makeOAuthClient()
+  client.setCredentials({ access_token: accessToken, refresh_token: refreshToken })
 
-  const calendar = google.calendar({ version: 'v3', auth: oauth2Client })
+  const calendar = google.calendar({ version: 'v3', auth: client })
   const timeMin = new Date().toISOString()
   const timeMax = addDays(new Date(), daysAhead).toISOString()
 
@@ -73,20 +74,25 @@ export function findGroupFreeSlots(
     const dayEnd = new Date(endOfDay(day).getTime())
     dayEnd.setHours(22, 0, 0, 0)
 
-    // Collect all busy intervals for this day across all users
+    // Collect all busy intervals for this day across all users.
+    // Use midnight-to-midnight as the day boundary for overlap detection so
+    // multi-day events (start yesterday, end tomorrow) are not missed.
+    const dayMidnight = startOfDay(day).getTime()
+    const nextMidnight = dayMidnight + 24 * 60 * 60 * 1000
+
     const intervals: { start: number; end: number }[] = []
     for (const { busy } of allBusyBlocks) {
       for (const block of busy) {
-        const s = new Date(block.start)
-        const e = new Date(block.end)
-        if (
-          s.toDateString() === day.toDateString() ||
-          e.toDateString() === day.toDateString()
-        ) {
-          intervals.push({
-            start: Math.max(s.getTime(), dayStart.getTime()),
-            end: Math.min(e.getTime(), dayEnd.getTime()),
-          })
+        const s = new Date(block.start).getTime()
+        const e = new Date(block.end).getTime()
+        // Any event that overlaps this calendar day at all
+        if (s < nextMidnight && e > dayMidnight) {
+          const clampedStart = Math.max(s, dayStart.getTime())
+          const clampedEnd = Math.min(e, dayEnd.getTime())
+          // Only keep if the clamped interval is actually within our window
+          if (clampedEnd > clampedStart) {
+            intervals.push({ start: clampedStart, end: clampedEnd })
+          }
         }
       }
     }
@@ -130,7 +136,7 @@ export function findGroupFreeSlots(
           isWeekend: isWeekend(start),
         })
       }
-      cursor = block.end
+      cursor = Math.max(block.end, dayStart.getTime())
     }
   }
 
