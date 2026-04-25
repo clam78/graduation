@@ -69,9 +69,9 @@ export function findGroupFreeSlots(
   for (let d = 0; d < daysAhead; d++) {
     const day = addDays(now, d)
     const dayStart = new Date(startOfDay(day).getTime())
-    dayStart.setHours(7, 0, 0, 0)
+    dayStart.setHours(8, 0, 0, 0)
     const dayEnd = new Date(endOfDay(day).getTime())
-    dayEnd.setHours(23, 0, 0, 0)
+    dayEnd.setHours(22, 0, 0, 0)
 
     // Collect all busy intervals for this day across all users
     const intervals: { start: number; end: number }[] = []

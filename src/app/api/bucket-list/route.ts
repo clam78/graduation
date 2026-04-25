@@ -85,3 +85,14 @@ export async function PATCH(req: NextRequest) {
 
   return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
 }
+
+export async function DELETE(req: NextRequest) {
+  const supabase = await createServerSupabaseClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { id } = await req.json()
+  const admin = createAdminSupabaseClient()
+  await admin.from('bucket_list_items').delete().eq('id', id)
+  return NextResponse.json({ ok: true })
+}

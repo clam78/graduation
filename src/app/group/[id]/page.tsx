@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Countdown from '@/components/Countdown'
 import BucketList from '@/components/BucketList'
-import SuggestionCard from '@/components/SuggestionCard'
+import WeekCalendar from '@/components/WeekCalendar'
 import ProposeTimeModal from '@/components/ProposeTimeModal'
 import { BucketListItem, FreeSlot, Group, Suggestion } from '@/types'
 import { createClient } from '@/lib/supabase'
@@ -92,7 +92,12 @@ export default function GroupPage() {
     }
   }
 
-  async function loadSuggestions(slot: FreeSlot) {
+  async function loadSuggestions(slot: FreeSlot | null) {
+    if (!slot) {
+      setSelectedSlot(null)
+      setSuggestions([])
+      return
+    }
     setSelectedSlot(slot)
     setLoadingSuggestions(true)
     const res = await fetch('/api/suggestions', {
@@ -212,65 +217,20 @@ export default function GroupPage() {
               prev.map((item) => (item.id === id ? { ...item, ...changes } : item))
             )
           }
+          onItemDeleted={(id) => setItems((prev) => prev.filter((item) => item.id !== id))}
         />
       )}
 
       {tab === 'schedule' && (
         <div className="flex flex-col gap-8">
-
-          <div>
-            <h2 className="font-serif text-lg text-bark mb-3">Free windows</h2>
-            {freeSlots.length === 0 ? (
-              <div className="text-center py-10 bg-white rounded-2xl border border-sand">
-                <p className="text-sm text-muted">Connect calendars to see shared free time.</p>
-                <p className="text-xs text-muted-light mt-1">Green avatar means calendar is synced.</p>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {freeSlots.slice(0, 12).map((slot, i) => (
-                  <button
-                    key={i}
-                    onClick={() => loadSuggestions(slot)}
-                    className={`text-left p-3.5 rounded-2xl border transition-all ${
-                      selectedSlot === slot
-                        ? 'border-blush bg-petal'
-                        : 'bg-white border-sand hover:border-sand-deep shadow-sm'
-                    }`}
-                  >
-                    <p className="text-sm font-medium text-bark">
-                      {slot.start.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-                    </p>
-                    <p className="text-xs text-muted mt-0.5">
-                      {slot.start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                      {' – '}
-                      {slot.end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                      <span className="mx-1.5 text-sand-deep">·</span>
-                      <span className="capitalize">{slot.slotType.replace('_', ' ')}</span>
-                    </p>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {selectedSlot && (
-            <div>
-              <h2 className="font-serif text-lg text-bark mb-3">Suggestions</h2>
-              {loadingSuggestions ? (
-                <div className="flex justify-center py-10">
-                  <div className="w-5 h-5 border-2 border-blush border-t-transparent rounded-full animate-spin" />
-                </div>
-              ) : suggestions.length === 0 ? (
-                <p className="text-sm text-muted text-center py-8">No suggestions found for this window.</p>
-              ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  {suggestions.map((s, i) => (
-                    <SuggestionCard key={i} suggestion={s} onAddToBucketList={addSuggestionToList} />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          <WeekCalendar
+            freeSlots={freeSlots}
+            selectedSlot={selectedSlot}
+            suggestions={suggestions}
+            loadingSuggestions={loadingSuggestions}
+            onSlotSelect={loadSuggestions}
+            onAddToBucketList={addSuggestionToList}
+          />
 
           {items.filter((i) => !i.completed).length > 0 && (
             <div>

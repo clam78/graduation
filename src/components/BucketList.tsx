@@ -19,9 +19,10 @@ interface BucketListProps {
   groupId: string
   onItemAdded: (item: BucketListItem) => void
   onItemUpdated: (id: string, changes: Partial<BucketListItem>) => void
+  onItemDeleted: (id: string) => void
 }
 
-export default function BucketList({ items, groupId, onItemAdded, onItemUpdated }: BucketListProps) {
+export default function BucketList({ items, groupId, onItemAdded, onItemUpdated, onItemDeleted }: BucketListProps) {
   const [showAdd, setShowAdd] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newCategory, setNewCategory] = useState<ActivityCategory>('outdoor')
@@ -56,6 +57,15 @@ export default function BucketList({ items, groupId, onItemAdded, onItemUpdated 
       body: JSON.stringify({ id: item.id, completed: !item.completed }),
     })
     onItemUpdated(item.id, { completed: !item.completed })
+  }
+
+  async function deleteItem(id: string) {
+    await fetch('/api/bucket-list', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
+    onItemDeleted(id)
   }
 
   async function toggleUpvote(item: BucketListItem) {
@@ -173,6 +183,14 @@ export default function BucketList({ items, groupId, onItemAdded, onItemUpdated 
             >
               <span className="text-[10px]">&#9825;</span>
               <span>{item.upvoteCount}</span>
+            </button>
+
+            <button
+              onClick={() => deleteItem(item.id)}
+              className="w-6 h-6 flex items-center justify-center rounded-full text-muted hover:text-blush-deep hover:bg-petal transition-colors text-xs"
+              title="Delete"
+            >
+              ✕
             </button>
           </li>
         ))}

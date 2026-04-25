@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Suggestion } from '@/types'
 
 interface SuggestionCardProps {
@@ -9,6 +10,12 @@ interface SuggestionCardProps {
 
 export default function SuggestionCard({ suggestion, onAddToBucketList }: SuggestionCardProps) {
   const { venue, reason, isOpenDuringSlot } = suggestion
+  const [added, setAdded] = useState(false)
+
+  async function handleAdd() {
+    await onAddToBucketList(suggestion)
+    setAdded(true)
+  }
 
   return (
     <div className="flex flex-col gap-3 p-4 bg-white rounded-2xl border border-sand shadow-sm hover:border-sand-deep transition-all">
@@ -52,10 +59,15 @@ export default function SuggestionCard({ suggestion, onAddToBucketList }: Sugges
             </a>
           )}
           <button
-            onClick={() => onAddToBucketList(suggestion)}
-            className="text-xs px-3 py-1.5 bg-bark text-white rounded-full hover:bg-bark-light transition-colors"
+            onClick={handleAdd}
+            disabled={added}
+            className={`text-xs px-3 py-1.5 rounded-full transition-colors ${
+              added
+                ? 'bg-sage text-sage-deep cursor-default'
+                : 'bg-bark text-white hover:bg-bark-light'
+            }`}
           >
-            Add to list
+            {added ? 'Added to list!' : 'Add to list'}
           </button>
         </div>
       </div>
