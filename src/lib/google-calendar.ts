@@ -2,10 +2,12 @@ import { google } from 'googleapis'
 import { FreeSlot, SlotType } from '@/types'
 import { addDays, format, isWeekend, startOfDay, endOfDay } from 'date-fns'
 
+const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
-  process.env.GOOGLE_REDIRECT_URI
+  `${appUrl}/api/auth/callback/google`
 )
 
 export function getAuthUrl(groupId: string) {
