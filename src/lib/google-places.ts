@@ -5,6 +5,7 @@ const PLACES_BASE = 'https://places.googleapis.com/v1/places:searchText'
 const CATEGORY_QUERIES: Record<ActivityCategory, string> = {
   meal: 'restaurants in Boston MA',
   cafe: 'coffee shops cafes in Boston MA',
+  dessert: 'ice cream dessert shops in Boston MA',
   outdoor: 'parks gardens in Boston MA',
   culture: 'museums art galleries in Boston MA',
   social: 'bars entertainment venues in Boston MA',

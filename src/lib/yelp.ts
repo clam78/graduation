@@ -5,6 +5,7 @@ const YELP_BASE = 'https://api.yelp.com/v3'
 const CATEGORY_TERMS: Record<ActivityCategory, string> = {
   meal: 'restaurants',
   cafe: 'cafes,coffee',
+  dessert: 'icecream,desserts',
   outdoor: 'parks,hiking',
   culture: 'museums,arts',
   social: 'bars,entertainment',

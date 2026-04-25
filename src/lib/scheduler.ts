@@ -45,7 +45,7 @@ export function scoreVenueForSlot(venue: Venue, slot: FreeSlot): number {
   }
 
   if (venue.rating) score += venue.rating * 5
-  if (venue.isCurated) score += 8
+  if (venue.isCurated) score += 20
   if (!isVenueOpenDuring(venue, slot)) score -= 100 // hard penalty for closed
 
   return score
@@ -61,12 +61,14 @@ export function buildSuggestionReason(
     return `${venue.name} is closed during this window — try a different time.`
   }
 
+  if (venue.tagline) return venue.tagline
+
   const dayLabel = slot.isWeekend ? 'weekend' : 'weekday'
   const slotLabels: Record<string, string> = {
     breakfast: 'morning fuel before the day starts',
     morning: 'a relaxed morning outing',
     lunch: 'a midday break',
-    afternoon: slot.isWeekend ? 'an afternoon adventure' : 'an afternoon study session',
+    afternoon: slot.isWeekend ? 'an afternoon adventure' : 'an afternoon hangout',
     dinner: 'dinner together',
     evening: 'a fun evening out',
     late_night: 'a late-night hang',

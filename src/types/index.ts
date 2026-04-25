@@ -1,6 +1,7 @@
 export type ActivityCategory =
   | 'meal'
   | 'cafe'
+  | 'dessert'
   | 'outdoor'
   | 'culture'
   | 'social'
@@ -34,6 +35,7 @@ export interface Venue {
   yelpUrl?: string
   hours?: VenueHourPeriod[]
   isCurated?: boolean  // part of the Boston curated list
+  tagline?: string     // short specific reason shown on the card
 }
 
 export interface FreeSlot {

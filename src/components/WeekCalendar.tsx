@@ -61,14 +61,20 @@ export default function WeekCalendar({
   }
 
   const today = new Date()
+  const firstWeekStart = startOfWeek(today, { weekStartsOn: 1 })
+  const GRADUATION = new Date('2026-05-29')
+  const lastWeekStart = startOfWeek(GRADUATION, { weekStartsOn: 1 })
+  const isFirstWeek = weekStart <= firstWeekStart
+  const isLastWeek = weekStart >= lastWeekStart
 
   return (
     <div className="flex flex-col gap-4">
       {/* Week nav */}
       <div className="flex items-center justify-between">
         <button
-          onClick={() => setWeekStart(d => addDays(d, -7))}
-          className="px-3 py-1.5 text-xs text-muted bg-white border border-sand rounded-full hover:border-sand-deep transition-colors"
+          onClick={() => { if (!isFirstWeek) setWeekStart(d => addDays(d, -7)) }}
+          disabled={isFirstWeek}
+          className="px-3 py-1.5 text-xs text-muted bg-white border border-sand rounded-full hover:border-sand-deep transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-sand"
         >
           ← prev
         </button>
@@ -76,8 +82,9 @@ export default function WeekCalendar({
           {format(weekStart, 'MMM d')} – {format(addDays(weekStart, 6), 'MMM d')}
         </p>
         <button
-          onClick={() => setWeekStart(d => addDays(d, 7))}
-          className="px-3 py-1.5 text-xs text-muted bg-white border border-sand rounded-full hover:border-sand-deep transition-colors"
+          onClick={() => { if (!isLastWeek) setWeekStart(d => addDays(d, 7)) }}
+          disabled={isLastWeek}
+          className="px-3 py-1.5 text-xs text-muted bg-white border border-sand rounded-full hover:border-sand-deep transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-sand"
         >
           next →
         </button>
@@ -152,7 +159,13 @@ export default function WeekCalendar({
                           : 'bg-petal text-blush-deep hover:bg-blush hover:text-white'
                       }`}
                     >
-                      {format(slot.start, 'h:mm')}
+                      <span className="block">{format(slot.start, 'h:mma')}–{format(slot.end, 'h:mma')}</span>
+                      <span className="block opacity-80">
+                        {(slot.durationMinutes / 60 % 1 === 0
+                          ? slot.durationMinutes / 60
+                          : (slot.durationMinutes / 60).toFixed(1)
+                        )} hr
+                      </span>
                     </button>
                   )
                 })}

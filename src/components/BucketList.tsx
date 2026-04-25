@@ -6,6 +6,7 @@ import { BucketListItem, ActivityCategory } from '@/types'
 const CATEGORY_COLORS: Record<ActivityCategory, string> = {
   meal: 'bg-petal text-blush-deep',
   cafe: 'bg-sand text-bark-light',
+  dessert: 'bg-petal text-blush-deep',
   outdoor: 'bg-sage text-sage-deep',
   culture: 'bg-lavender text-bark-light',
   social: 'bg-petal text-blush-deep',
@@ -113,7 +114,7 @@ export default function BucketList({ items, groupId, onItemAdded, onItemUpdated,
             onChange={(e) => setNewCategory(e.target.value as ActivityCategory)}
             className="text-xs border border-sand rounded-xl px-2 py-1.5 bg-cream text-muted focus:outline-none focus:border-blush"
           >
-            {(['meal','cafe','outdoor','culture','social','study','fitness','nightlife'] as ActivityCategory[]).map((cat) => (
+            {(['meal','cafe','dessert','outdoor','culture','social','study','fitness','nightlife'] as ActivityCategory[]).map((cat) => (
               <option key={cat} value={cat}>{cat}</option>
             ))}
           </select>
