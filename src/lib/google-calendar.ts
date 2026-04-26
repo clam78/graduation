@@ -37,10 +37,15 @@ interface BusyBlock {
 export async function getUserBusyBlocks(
   accessToken: string,
   refreshToken: string,
-  daysAhead = 14
+  daysAhead = 14,
+  tokenExpiryIso?: string | null
 ): Promise<BusyBlock[]> {
   const client = makeOAuthClient()
-  client.setCredentials({ access_token: accessToken, refresh_token: refreshToken })
+  client.setCredentials({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+    expiry_date: tokenExpiryIso ? new Date(tokenExpiryIso).getTime() : undefined,
+  })
 
   const calendar = google.calendar({ version: 'v3', auth: client })
   const timeMin = new Date().toISOString()
@@ -50,12 +55,14 @@ export async function getUserBusyBlocks(
   let calendarIds: string[] = ['primary']
   try {
     const listRes = await calendar.calendarList.list({ minAccessRole: 'reader' })
+    // Include all calendars (even hidden ones) — hidden just means hidden from the UI
     const ids = (listRes.data.items ?? [])
-      .filter(c => !c.hidden && c.id)
+      .filter(c => c.id)
       .map(c => c.id!)
     if (ids.length > 0) calendarIds = ids
-  } catch {
-    // Old token with freebusy-only scope — primary only
+    console.log(`[calendar] found ${ids.length} calendars:`, ids)
+  } catch (err) {
+    console.error('[calendar] calendarList.list failed (old freebusy-only token?), falling back to primary:', err)
   }
 
   const res = await calendar.freebusy.query({
@@ -64,7 +71,10 @@ export async function getUserBusyBlocks(
 
   // Collect busy blocks from every calendar in the response
   const allBusy: BusyBlock[] = []
-  for (const calData of Object.values(res.data.calendars ?? {})) {
+  for (const [calId, calData] of Object.entries(res.data.calendars ?? {})) {
+    if (calData.errors?.length) {
+      console.warn(`[calendar] errors for calendar ${calId}:`, calData.errors)
+    }
     for (const block of calData.busy ?? []) {
       if (block.start && block.end) allBusy.push({ start: block.start, end: block.end })
     }

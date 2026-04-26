@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
   // Fetch all members in the group who have calendar tokens
   const { data: members } = await admin
     .from('group_members')
-    .select('user_id, display_name, google_access_token, google_refresh_token')
+    .select('user_id, display_name, google_access_token, google_refresh_token, google_token_expiry')
     .eq('group_id', groupId)
     .not('google_access_token', 'is', null)
 
@@ -36,7 +36,8 @@ export async function GET(req: NextRequest) {
       busy: await getUserBusyBlocks(
         m.google_access_token!,
         m.google_refresh_token!,
-        daysAhead
+        daysAhead,
+        m.google_token_expiry
       ),
     }))
   )
@@ -53,5 +54,5 @@ export async function GET(req: NextRequest) {
     blocks: busy.map(({ start, end }) => ({ start, end })),
   }))
 
-  return NextResponse.json({ freeSlots, busyBlocks: sanitizedBusy })
+  return NextResponse.json({ freeSlots, busyBlocks: sanitizedBusy, memberCount: allBusyBlocks.length })
 }
