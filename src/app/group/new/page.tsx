@@ -30,6 +30,9 @@ export default function NewGroupPage() {
   return (
     <main className="min-h-screen flex items-center justify-center px-6">
       <div className="max-w-sm w-full flex flex-col gap-6">
+        <a href="/dashboard" className="text-xs text-muted hover:text-bark transition-colors self-start">
+          ← dashboard
+        </a>
         <div className="text-center flex flex-col gap-1">
           <h1 className="font-serif text-3xl text-bark">Create your group</h1>
           <p className="text-muted text-sm">Your friends will join with an invite code.</p>

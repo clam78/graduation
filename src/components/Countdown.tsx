@@ -5,10 +5,10 @@ import { differenceInDays, differenceInHours, differenceInMinutes, differenceInS
 
 interface CountdownProps {
   graduationDate: string
-  groupName: string
+  variant?: 'sidebar' | 'inline'
 }
 
-export default function Countdown({ graduationDate, groupName }: CountdownProps) {
+export default function Countdown({ graduationDate, variant = 'inline' }: CountdownProps) {
   const [timeLeft, setTimeLeft] = useState(getTimeLeft(graduationDate))
 
   useEffect(() => {
@@ -24,9 +24,40 @@ export default function Countdown({ graduationDate, groupName }: CountdownProps)
     )
   }
 
+  if (variant === 'sidebar') {
+    return (
+      <div className="bg-petal rounded-3xl border border-blush/30 px-6 py-8 flex flex-col items-center justify-center gap-5 h-full min-h-[280px]">
+        <p className="text-[10px] uppercase tracking-[0.25em] text-blush-deep font-medium">until graduation</p>
+
+        <div className="flex flex-col items-center gap-0.5">
+          <span className="font-serif text-[5.5rem] leading-none text-bark tabular-nums">
+            {String(timeLeft.days).padStart(2, '0')}
+          </span>
+          <span className="text-xs text-muted uppercase tracking-widest">days</span>
+        </div>
+
+        <div className="flex gap-5">
+          {[
+            { label: 'hr',  value: timeLeft.hours },
+            { label: 'min', value: timeLeft.minutes },
+            { label: 'sec', value: timeLeft.seconds },
+          ].map(({ label, value }) => (
+            <div key={label} className="flex flex-col items-center gap-0.5">
+              <span className="font-serif text-2xl text-bark tabular-nums">
+                {String(value).padStart(2, '0')}
+              </span>
+              <span className="text-[9px] text-muted uppercase tracking-wider">{label}</span>
+            </div>
+          ))}
+        </div>
+
+        <p className="text-[10px] text-muted-light tracking-wide">May 29, 2026</p>
+      </div>
+    )
+  }
+
   return (
     <div className="text-center py-10 px-4">
-      <p className="text-xs uppercase tracking-[0.2em] text-muted font-medium mb-1">{groupName}</p>
       <h2 className="font-serif text-2xl text-bark mb-8">until graduation</h2>
       <div className="flex justify-center gap-4">
         {[

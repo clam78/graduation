@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import Countdown from '@/components/Countdown'
 import BucketList from '@/components/BucketList'
 import WeekCalendar from '@/components/WeekCalendar'
 import ProposeTimeModal from '@/components/ProposeTimeModal'
@@ -164,17 +163,22 @@ export default function GroupPage() {
     )
   }
 
+  const firstName = group.members.find(m => m.userId === currentUserId)?.displayName.split(' ')[0]?.toLowerCase() ?? null
+
   return (
     <div className="max-w-2xl mx-auto px-4 pb-20">
 
       <nav className="flex items-center justify-between py-4">
-        <a href="/dashboard" className="text-xs text-muted hover:text-bark transition-colors flex items-center gap-1">
-          ← all groups
-        </a>
+        <div>
+          {firstName && (
+            <p className="text-sm font-medium text-bark">hi, {firstName} :)</p>
+          )}
+          <a href="/dashboard" className="text-xs text-muted hover:text-bark transition-colors">
+            ← all groups
+          </a>
+        </div>
         <SignOutButton />
       </nav>
-
-      <Countdown graduationDate={group.graduationDate} groupName={group.name} />
 
       {/* Invite + members strip */}
       <div className="flex items-center justify-between px-4 py-3 bg-white rounded-2xl border border-sand shadow-sm mb-6">

@@ -30,6 +30,9 @@ export default function JoinPage() {
   return (
     <main className="min-h-screen flex items-center justify-center px-6">
       <div className="max-w-sm w-full flex flex-col gap-6">
+        <a href="/dashboard" className="text-xs text-muted hover:text-bark transition-colors self-start">
+          ← dashboard
+        </a>
         <div className="text-center flex flex-col gap-1">
           <h1 className="font-serif text-3xl text-bark">Join a group</h1>
           <p className="text-muted text-sm">Enter the invite code your friend shared.</p>
