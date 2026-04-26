@@ -23,4 +23,9 @@ body {
   background-color: var(--color-cream);
   color: var(--color-bark);
   font-family: var(--font-dm-sans), system-ui, sans-serif;
+  cursor: url('/cap-cursor.svg') 16 13, auto;
+}
+
+a, button, [role="button"], select, input[type="submit"], input[type="button"], label[for] {
+  cursor: url('/cap-cursor.svg') 16 13, pointer;
 }

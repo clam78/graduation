@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createServerSupabaseClient, createAdminSupabaseClient } from '@/lib/supabase-server'
 import Countdown from '@/components/Countdown'
+import KeyDatesSidebar from '@/components/KeyDatesSidebar'
 
 export default async function DashboardPage() {
   const supabase = await createServerSupabaseClient()
@@ -18,6 +19,7 @@ export default async function DashboardPage() {
 
   return (
     <main className="min-h-screen px-6 py-12">
+      <KeyDatesSidebar />
       <div className="max-w-3xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-8 items-start">
 
